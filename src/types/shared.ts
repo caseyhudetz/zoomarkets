@@ -1,0 +1,55 @@
+export interface Player {
+  id: string;
+  name: string;
+  balance: number;
+  isHost: boolean;
+}
+
+export interface Position {
+  yesShares: number;
+  noShares: number;
+  totalInvested: number;
+}
+
+export interface Market {
+  id: string;
+  question: string;
+  status: "open" | "resolved";
+  resolution: "yes" | "no" | null;
+  createdAt: number;
+  resolvedAt: number | null;
+  qYes: number;
+  qNo: number;
+  b: number;
+  yesPrice: number;
+  noPrice: number;
+  positions: Record<string, Position>;
+  priceHistory: { timestamp: number; yesPrice: number }[];
+}
+
+export interface Room {
+  code: string;
+  hostId: string;
+  players: Player[];
+  markets: Market[];
+  createdAt: number;
+}
+
+export interface RoomView {
+  code: string;
+  hostId: string;
+  players: Player[];
+  markets: MarketView[];
+}
+
+export interface MarketView {
+  id: string;
+  question: string;
+  status: "open" | "resolved";
+  resolution: "yes" | "no" | null;
+  yesPrice: number;
+  noPrice: number;
+  totalVolume: number;
+  myPosition: Position | null;
+  priceHistory: { timestamp: number; yesPrice: number }[];
+}

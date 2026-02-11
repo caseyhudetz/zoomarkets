@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-zoo-bg: #0a0e17;
+  --color-zoo-surface: #111827;
+  --color-zoo-border: #1f2937;
+  --color-zoo-surface-light: #1a2332;
+  --color-neon-green: #00ff88;
+  --color-neon-red: #ff3366;
+  --color-neon-blue: #00bbff;
+  --color-neon-purple: #aa55ff;
+  --color-neon-yellow: #ffcc00;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --font-sans: "Inter", "system-ui", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+html {
+  background: var(--color-zoo-bg);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-zoo-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15),
+    0 0 40px rgba(0, 255, 136, 0.05);
+}
+
+.glow-red {
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.15),
+    0 0 40px rgba(255, 51, 102, 0.05);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(0, 187, 255, 0.15),
+    0 0 40px rgba(0, 187, 255, 0.05);
+}
+
+.price-bar-yes {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.price-bar-no {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-zoo-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-zoo-border);
+  border-radius: 3px;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0, 187, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 187, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
