@@ -5,7 +5,7 @@ import { registerSocketHandlers } from "./socket/handler";
 import { RoomManager } from "./state/RoomManager";
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = process.env.HOSTNAME || "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
@@ -29,8 +29,9 @@ app.prepare().then(() => {
     handle(req, res);
   });
 
+  const corsOrigin = process.env.CORS_ORIGIN || "*";
   const io = new SocketServer(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    cors: { origin: corsOrigin, methods: ["GET", "POST"] },
     pingInterval: 10000,
     pingTimeout: 5000,
   });
@@ -39,7 +40,7 @@ app.prepare().then(() => {
 
   registerSocketHandlers(io, roomManager);
 
-  httpServer.listen(port, () => {
+  httpServer.listen(port, hostname, () => {
     console.log(`\n  ZooMarkets ready on http://${hostname}:${port}\n`);
   });
 });

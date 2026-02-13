@@ -5,6 +5,29 @@ import type { ClientToServerEvents, ServerToClientEvents } from "../../src/types
 type TypedServer = SocketServer<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+// Simple per-socket rate limiter
+const rateLimits = new Map<string, number[]>();
+const RATE_WINDOW_MS = 5000;
+const RATE_MAX_EVENTS = 20;
+
+function isRateLimited(socketId: string): boolean {
+  const now = Date.now();
+  let timestamps = rateLimits.get(socketId);
+  if (!timestamps) {
+    timestamps = [];
+    rateLimits.set(socketId, timestamps);
+  }
+  // Remove old timestamps
+  while (timestamps.length > 0 && timestamps[0] <= now - RATE_WINDOW_MS) {
+    timestamps.shift();
+  }
+  if (timestamps.length >= RATE_MAX_EVENTS) {
+    return true;
+  }
+  timestamps.push(now);
+  return false;
+}
+
 function broadcastLeaderboard(io: TypedServer, rooms: RoomManager, code: string) {
   const rankings = rooms.getLeaderboard(code);
   io.to(code).emit("leaderboard:updated", { rankings });
@@ -40,6 +63,15 @@ function handleLeave(socket: TypedSocket, io: TypedServer, rooms: RoomManager) {
 export function registerSocketHandlers(io: TypedServer, rooms: RoomManager) {
   io.on("connection", (socket: TypedSocket) => {
     console.log(`Connected: ${socket.id}`);
+
+    // Rate-limit middleware for all events
+    socket.use((event, next) => {
+      if (isRateLimited(socket.id)) {
+        console.log(`[RATE] ${socket.id} rate limited`);
+        return next(new Error("Rate limited"));
+      }
+      next();
+    });
 
     socket.on("room:create", ({ playerName }) => {
       // Leave any existing room first
@@ -212,6 +244,7 @@ export function registerSocketHandlers(io: TypedServer, rooms: RoomManager) {
 
     socket.on("disconnect", () => {
       console.log(`Disconnected: ${socket.id}`);
+      rateLimits.delete(socket.id);
       handleLeave(socket, io, rooms);
     });
   });
