@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import {
   cost,
   priceYes,
@@ -201,7 +201,7 @@ export class RoomManager {
     const room = this.rooms.get(code)!;
     const now = Date.now();
     const market: Market = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       question,
       status: "open",
       resolution: null,
