@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
+import { CURRENCY_SYMBOL } from "@/lib/constants";
 
 export default function Home() {
   const router = useRouter();
@@ -32,10 +33,7 @@ export default function Home() {
   function handleCreate() {
     if (!name.trim() || !socket) return;
     setLoading(true);
-    // Just emit create — don't listen for room:joined here.
-    // We'll navigate to the room page, which will handle re-joining.
     socket.once("room:created", ({ code }) => {
-      // Store our name so the room page can auto-join
       sessionStorage.setItem("zoo_playerName", name.trim());
       sessionStorage.setItem("zoo_roomCode", code);
       router.push(`/room/${code}`);
@@ -46,7 +44,6 @@ export default function Home() {
   function handleJoin() {
     if (!joinCode.trim() || !joinName.trim() || !socket) return;
     setLoading(true);
-    // Store name and navigate — room page handles the actual join
     sessionStorage.setItem("zoo_playerName", joinName.trim());
     sessionStorage.setItem("zoo_roomCode", joinCode.trim().toUpperCase());
     router.push(`/room/${joinCode.trim().toUpperCase()}`);
@@ -62,7 +59,7 @@ export default function Home() {
             <span className="text-neon-blue">Markets</span>
           </h1>
           <p className="text-text-secondary text-lg">
-            Degenerate meeting betting
+            Bet your {CURRENCY_SYMBOL} reputation
           </p>
         </div>
 
@@ -95,7 +92,7 @@ export default function Home() {
                 Create a Room
               </div>
               <div className="text-sm text-text-muted mt-1">
-                Start a new betting room and share the code
+                Start a new prediction room and share the code
               </div>
             </button>
 
@@ -189,7 +186,7 @@ export default function Home() {
         )}
 
         <div className="mt-12 text-center text-text-muted text-xs">
-          No real money. Just vibes and bragging rights.
+          No real money. Just {CURRENCY_SYMBOL} Clout and bragging rights.
         </div>
       </div>
     </div>

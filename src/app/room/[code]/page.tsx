@@ -4,12 +4,16 @@ import { useEffect, useState, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
 import { useRoom } from "@/hooks/useRoom";
+import { useSounds } from "@/hooks/useSounds";
 import { RoomHeader } from "@/components/room/RoomHeader";
 import { MarketCard } from "@/components/room/MarketCard";
 import { Leaderboard } from "@/components/room/Leaderboard";
 import { CreateMarketModal } from "@/components/room/CreateMarketModal";
 import { ZoomImportModal } from "@/components/room/ZoomImportModal";
 import { Confetti } from "@/components/effects/Confetti";
+import { BetFeedToast } from "@/components/room/BetFeedToast";
+import { MobileBottomBar } from "@/components/room/MobileBottomBar";
+import { BottomSheet } from "@/components/room/BottomSheet";
 
 export default function RoomPage({
   params,
@@ -25,69 +29,89 @@ export default function RoomPage({
     myId,
     isHost,
     myBalance,
+    myRank,
     error,
+    betFeed,
+    lastStreaks,
     joinRoom,
+    rejoinRoom,
     leaveRoom,
     createMarket,
     placeBet,
     resolveMarket,
+    reactToMarket,
     importPlayers,
   } = useRoom(socket);
+
+  const { muted, toggleMute, playBetSound, playResolveSound, playStreakSound } =
+    useSounds();
 
   const [showCreateMarket, setShowCreateMarket] = useState(false);
   const [showZoomImport, setShowZoomImport] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [joinName, setJoinName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
 
   // Track whether we've attempted auto-join
   const autoJoinAttempted = useRef(false);
 
-  // Auto-join: if we came from the landing page with a stored name, join automatically
+  // Auto-join: try rejoin token first, then fall back to stored name
   useEffect(() => {
     if (!socket || !isConnected || autoJoinAttempted.current) return;
-    if (room && room.code === upperCode) return; // Already in this room
+    if (room && room.code === upperCode) return;
 
+    autoJoinAttempted.current = true;
+
+    // Try rejoin first (returning user with valid token)
+    const rejoinCode = sessionStorage.getItem("zoo_rejoinCode");
+    if (rejoinCode === upperCode) {
+      const attempted = rejoinRoom(upperCode);
+      if (attempted) return;
+    }
+
+    // Fall back to stored name from landing page
     const storedName = sessionStorage.getItem("zoo_playerName");
     const storedCode = sessionStorage.getItem("zoo_roomCode");
 
     if (storedName && storedCode === upperCode) {
-      autoJoinAttempted.current = true;
-      // Clear sessionStorage
       sessionStorage.removeItem("zoo_playerName");
       sessionStorage.removeItem("zoo_roomCode");
-
-      // The socket may already be in the room (if we created it on the landing page).
-      // Emit room:join — the server handles the case where we're already in the room.
-      // Actually, for the creator: the server's room:create already added us.
-      // But the room page's useRoom hook hasn't received room:joined yet because
-      // the handler registered AFTER the event fired on the landing page.
-      // Solution: emit room:join which will either re-join or get "Already in room".
-      // But "Already in room" is an error... Let's handle this differently.
-
-      // We'll just emit join. If we get "Already in room", that means we created it.
-      // In that case we need to get the room state. Let's add a "room:rejoin" flow
-      // or just handle the error gracefully.
-
-      // Simplest fix: on the server, if "Already in room", just re-emit room:joined.
       joinRoom(upperCode, storedName);
     }
-  }, [socket, isConnected, room, upperCode, joinRoom]);
+  }, [socket, isConnected, room, upperCode, joinRoom, rejoinRoom]);
 
-  // Show confetti on market resolution
+  // Play sounds on events
   useEffect(() => {
     if (!socket) return;
+
+    function onBetPlaced() {
+      playBetSound();
+    }
+
     function onResolved() {
+      playResolveSound();
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 100);
     }
+
+    socket.on("bet:placed", onBetPlaced);
     socket.on("market:resolved", onResolved);
     return () => {
+      socket.off("bet:placed", onBetPlaced);
       socket.off("market:resolved", onResolved);
     };
-  }, [socket]);
+  }, [socket, playBetSound, playResolveSound]);
 
-  // Track join errors separately
+  // Play streak sound when my streak increases
+  useEffect(() => {
+    if (!myId || !lastStreaks[myId]) return;
+    if (lastStreaks[myId] >= 2) {
+      playStreakSound();
+    }
+  }, [lastStreaks, myId, playStreakSound]);
+
+  // Track join errors
   useEffect(() => {
     if (error) {
       setJoinError(error);
@@ -178,12 +202,14 @@ export default function RoomPage({
         playerCount={room.players.length}
         myBalance={myBalance}
         isHost={isHost}
+        muted={muted}
         onLeave={handleLeave}
+        onToggleMute={toggleMute}
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex-1 flex flex-col lg:flex-row pb-16 lg:pb-0">
         {/* Main content */}
-        <main className="flex-1 p-4 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-4 overflow-y-auto">
           {/* Empty state */}
           {room.markets.length === 0 && (
             <div className="text-center py-16 animate-fade-in">
@@ -192,7 +218,7 @@ export default function RoomPage({
               </h2>
               <p className="text-text-muted max-w-sm mx-auto">
                 {isHost
-                  ? 'Click "New Market" below to create your first prediction!'
+                  ? 'Tap "New Market" below to create your first prediction!'
                   : "Waiting for the host to create a market..."}
               </p>
             </div>
@@ -212,6 +238,7 @@ export default function RoomPage({
                   myBalance={myBalance}
                   onBet={placeBet}
                   onResolve={resolveMarket}
+                  onReact={reactToMarket}
                 />
               ))}
             </div>
@@ -231,14 +258,15 @@ export default function RoomPage({
                   myBalance={myBalance}
                   onBet={placeBet}
                   onResolve={resolveMarket}
+                  onReact={reactToMarket}
                 />
               ))}
             </div>
           )}
         </main>
 
-        {/* Sidebar */}
-        <aside className="w-full lg:w-80 p-4 lg:border-l border-zoo-border space-y-4">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:block w-80 p-4 border-l border-zoo-border space-y-4">
           <Leaderboard players={room.players} myId={myId} />
 
           {/* Players list */}
@@ -261,13 +289,16 @@ export default function RoomPage({
                   className={`text-xs px-2 py-1 rounded-full border ${
                     p.id === myId
                       ? "bg-neon-blue/10 border-neon-blue/30 text-neon-blue"
-                      : p.id.startsWith("ghost_")
-                        ? "bg-neon-purple/10 border-neon-purple/30 text-neon-purple"
-                        : "bg-zoo-bg border-zoo-border text-text-secondary"
+                      : p.disconnected
+                        ? "bg-zoo-bg border-zoo-border text-text-muted opacity-50"
+                        : p.id.startsWith("ghost_")
+                          ? "bg-neon-purple/10 border-neon-purple/30 text-neon-purple"
+                          : "bg-zoo-bg border-zoo-border text-text-secondary"
                   }`}
                 >
                   {p.name}
                   {p.isHost ? " (Host)" : ""}
+                  {p.disconnected ? " (offline)" : ""}
                 </span>
               ))}
             </div>
@@ -275,11 +306,67 @@ export default function RoomPage({
         </aside>
       </div>
 
-      {/* FAB buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
+      {/* Mobile Bottom Bar */}
+      <MobileBottomBar
+        myRank={myRank || 1}
+        myBalance={myBalance}
+        playerCount={room.players.length}
+        onTap={() => setShowBottomSheet(true)}
+      />
+
+      {/* Mobile Bottom Sheet (leaderboard + players) */}
+      <BottomSheet
+        isOpen={showBottomSheet}
+        onClose={() => setShowBottomSheet(false)}
+      >
+        <Leaderboard players={room.players} myId={myId} />
+
+        <div className="bg-zoo-surface border border-zoo-border rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-zoo-border flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
+              Players ({room.players.length})
+            </h3>
+            <button
+              onClick={() => {
+                setShowBottomSheet(false);
+                setShowZoomImport(true);
+              }}
+              className="text-xs px-2 py-1 rounded-lg bg-neon-purple/10 border border-neon-purple/30 text-neon-purple hover:bg-neon-purple/20 transition-colors"
+            >
+              + Import
+            </button>
+          </div>
+          <div className="p-3 flex flex-wrap gap-2">
+            {room.players.map((p) => (
+              <span
+                key={p.id}
+                className={`text-xs px-2 py-1 rounded-full border ${
+                  p.id === myId
+                    ? "bg-neon-blue/10 border-neon-blue/30 text-neon-blue"
+                    : p.disconnected
+                      ? "bg-zoo-bg border-zoo-border text-text-muted opacity-50"
+                      : p.id.startsWith("ghost_")
+                        ? "bg-neon-purple/10 border-neon-purple/30 text-neon-purple"
+                        : "bg-zoo-bg border-zoo-border text-text-secondary"
+                }`}
+              >
+                {p.name}
+                {p.isHost ? " (Host)" : ""}
+                {p.disconnected ? " (offline)" : ""}
+              </span>
+            ))}
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Bet Feed Toasts */}
+      <BetFeedToast entries={betFeed} />
+
+      {/* FAB */}
+      <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 flex flex-col gap-3 z-30">
         <button
           onClick={() => setShowCreateMarket(true)}
-          className="px-5 py-3 rounded-xl bg-neon-blue text-zoo-bg font-bold shadow-lg hover:shadow-neon-blue/30 hover:scale-105 transition-all"
+          className="px-5 py-3 rounded-xl bg-neon-blue text-zoo-bg font-bold shadow-lg hover:shadow-neon-blue/30 hover:scale-105 transition-all min-h-[48px]"
         >
           + New Market
         </button>
@@ -287,7 +374,7 @@ export default function RoomPage({
 
       {/* Error toast */}
       {error && (
-        <div className="fixed bottom-6 left-6 p-3 rounded-lg bg-neon-red/10 border border-neon-red/30 text-neon-red text-sm animate-slide-up z-50">
+        <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 p-3 rounded-lg bg-neon-red/10 border border-neon-red/30 text-neon-red text-sm animate-slide-up z-50">
           {error}
         </div>
       )}
