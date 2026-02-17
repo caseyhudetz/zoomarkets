@@ -1,8 +1,12 @@
+export type ReactionEmoji = "🔥" | "😂" | "💀" | "🤔";
+
 export interface Player {
   id: string;
   name: string;
   balance: number;
   isHost: boolean;
+  streak: number;
+  disconnected?: boolean;
 }
 
 export interface Position {
@@ -52,4 +56,6 @@ export interface MarketView {
   totalVolume: number;
   myPosition: Position | null;
   priceHistory: { timestamp: number; yesPrice: number }[];
+  reactions: Record<string, number>;
+  myReactions: string[];
 }

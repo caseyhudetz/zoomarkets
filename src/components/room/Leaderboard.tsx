@@ -1,13 +1,14 @@
 "use client";
 
 import type { Player } from "@/types/shared";
+import { formatClout } from "@/lib/format";
 
 interface LeaderboardProps {
   players: Player[];
   myId: string | null;
 }
 
-const MEDALS = ["", "", ""];
+const MEDALS = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
 
 export function Leaderboard({ players, myId }: LeaderboardProps) {
   const sorted = [...players].sort((a, b) => b.balance - a.balance);
@@ -25,7 +26,7 @@ export function Leaderboard({ players, myId }: LeaderboardProps) {
             key={player.id}
             className={`flex items-center justify-between px-4 py-2.5 ${
               player.id === myId ? "bg-neon-blue/5" : ""
-            }`}
+            } ${player.disconnected ? "opacity-50" : ""}`}
           >
             <div className="flex items-center gap-2">
               <span className="w-6 text-center text-sm">
@@ -49,13 +50,21 @@ export function Leaderboard({ players, myId }: LeaderboardProps) {
                   HOST
                 </span>
               )}
+              {player.streak >= 2 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-gold/20 text-neon-gold font-bold">
+                  {"\u{1F525}"}&times;{player.streak}
+                </span>
+              )}
+              {player.disconnected && (
+                <span className="text-[10px] text-text-muted">offline</span>
+              )}
             </div>
             <span
               className={`font-mono text-sm font-bold ${
-                player.balance >= 1000 ? "text-neon-green" : "text-neon-red"
+                player.balance >= 1000 ? "text-neon-gold" : "text-neon-red"
               }`}
             >
-              ${Math.round(player.balance).toLocaleString()}
+              {formatClout(player.balance)}
             </span>
           </div>
         ))}

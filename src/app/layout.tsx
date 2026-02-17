@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ZooMarkets - Meeting Betting",
-  description: "Degenerate meeting betting for fun. Place your bets!",
+  title: "ZooMarkets - Bet Your Reputation",
+  description: "Prediction markets for Zoom calls. Bet Clout on meeting chaos.",
 };
 
 export default function RootLayout({
