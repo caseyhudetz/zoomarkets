@@ -33,6 +33,14 @@ export interface Position {
   totalInvested: number;
 }
 
+export interface Comment {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface Market {
   id: string;
   question: string;
@@ -48,10 +56,12 @@ export interface Market {
   positions: Record<string, Position>;
   priceHistory: { timestamp: number; yesPrice: number }[];
   reactions: Record<string, Set<string>>;
+  comments: Comment[];
 }
 
 export interface Room {
   code: string;
+  name?: string;
   hostId: string;
   players: Player[];
   markets: Market[];
@@ -71,10 +81,12 @@ export interface MarketView {
   priceHistory: { timestamp: number; yesPrice: number }[];
   reactions: Record<string, number>;
   myReactions: string[];
+  comments: Comment[];
 }
 
 export interface RoomView {
   code: string;
+  name?: string;
   hostId: string;
   players: {
     id: string;
@@ -129,11 +141,12 @@ export class RoomManager {
     return token;
   }
 
-  createRoom(hostSocketId: string, playerName: string): string {
+  createRoom(hostSocketId: string, playerName: string, roomName?: string): string {
     const code = this.generateCode();
     const now = Date.now();
     const room: Room = {
       code,
+      name: roomName || undefined,
       hostId: hostSocketId,
       players: [
         {
@@ -321,6 +334,7 @@ export class RoomManager {
       positions: {},
       priceHistory: [{ timestamp: now, yesPrice: 0.5 }],
       reactions: {},
+      comments: [],
     };
     room.markets.push(market);
     room.lastActivity = now;
@@ -459,6 +473,30 @@ export class RoomManager {
     return counts;
   }
 
+  addComment(
+    code: string,
+    marketId: string,
+    playerId: string,
+    text: string
+  ): Comment | null {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+    const market = room.markets.find((m) => m.id === marketId);
+    if (!market) return null;
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return null;
+    const comment: Comment = {
+      id: crypto.randomUUID().slice(0, 8),
+      playerId,
+      playerName: player.name,
+      text: text.slice(0, 280),
+      timestamp: Date.now(),
+    };
+    market.comments.push(comment);
+    room.lastActivity = Date.now();
+    return comment;
+  }
+
   getMarketView(
     code: string,
     marketId: string,
@@ -498,6 +536,7 @@ export class RoomManager {
       priceHistory: market.priceHistory,
       reactions,
       myReactions,
+      comments: market.comments,
     };
   }
 
@@ -507,6 +546,7 @@ export class RoomManager {
 
     return {
       code: room.code,
+      name: room.name,
       hostId: room.hostId,
       players: room.players.map((p) => ({
         id: p.id,

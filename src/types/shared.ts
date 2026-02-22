@@ -39,8 +39,17 @@ export interface Room {
   createdAt: number;
 }
 
+export interface Comment {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface RoomView {
   code: string;
+  name?: string;
   hostId: string;
   players: Player[];
   markets: MarketView[];
@@ -58,4 +67,5 @@ export interface MarketView {
   priceHistory: { timestamp: number; yesPrice: number }[];
   reactions: Record<string, number>;
   myReactions: string[];
+  comments: Comment[];
 }

@@ -107,13 +107,13 @@ export function registerSocketHandlers(io: TypedServer, rooms: RoomManager) {
       next();
     });
 
-    socket.on("room:create", ({ playerName }) => {
+    socket.on("room:create", ({ playerName, roomName }) => {
       const existing = rooms.getRoomForPlayer(socket.id);
       if (existing) {
         handleLeave(socket, io, rooms);
       }
 
-      const code = rooms.createRoom(socket.id, playerName);
+      const code = rooms.createRoom(socket.id, playerName, roomName);
       socket.join(code);
       socket.emit("room:created", { code });
       const view = rooms.getRoomView(code, socket.id);
@@ -323,6 +323,16 @@ export function registerSocketHandlers(io: TypedServer, rooms: RoomManager) {
       const counts = rooms.addReaction(room.code, marketId, socket.id, emoji);
       if (counts) {
         io.to(room.code).emit("market:reactionsUpdated", { marketId, reactions: counts });
+      }
+    });
+
+    socket.on("market:comment", ({ marketId, text }) => {
+      const room = rooms.getRoomForPlayer(socket.id);
+      if (!room) return;
+      if (!text.trim()) return;
+      const comment = rooms.addComment(room.code, marketId, socket.id, text.trim());
+      if (comment) {
+        io.to(room.code).emit("market:commentAdded", { marketId, comment });
       }
     });
 

@@ -10,11 +10,32 @@ export default function Home() {
   const { socket, isConnected } = useSocket();
 
   const [name, setName] = useState("");
+  const [roomName, setRoomName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("");
   const [mode, setMode] = useState<"pick" | "create" | "join">("pick");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastRoom, setLastRoom] = useState<{
+    code: string;
+    name: string | null;
+    leftAt: number;
+  } | null>(null);
+
+  // Check for last room on mount
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("zoo_lastRoom");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Date.now() - parsed.leftAt < 30 * 60 * 1000) {
+          setLastRoom(parsed);
+        } else {
+          sessionStorage.removeItem("zoo_lastRoom");
+        }
+      }
+    } catch {}
+  }, []);
 
   // Listen for errors
   useEffect(() => {
@@ -38,7 +59,10 @@ export default function Home() {
       sessionStorage.setItem("zoo_roomCode", code);
       router.push(`/room/${code}`);
     });
-    socket.emit("room:create", { playerName: name.trim() });
+    socket.emit("room:create", {
+      playerName: name.trim(),
+      roomName: roomName.trim() || undefined,
+    });
   }
 
   function handleJoin() {
@@ -83,6 +107,25 @@ export default function Home() {
 
         {mode === "pick" && (
           <div className="space-y-4 animate-fade-in">
+            {/* Rejoin last room */}
+            {lastRoom && (
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem("zoo_lastRoom");
+                  router.push(`/room/${lastRoom.code}`);
+                }}
+                disabled={!isConnected}
+                className="w-full p-4 rounded-xl bg-zoo-surface border border-neon-gold/30 hover:border-neon-gold/50 transition-all text-left group disabled:opacity-50"
+              >
+                <div className="text-lg font-semibold text-neon-gold">
+                  Rejoin {lastRoom.name || `Room ${lastRoom.code}`}
+                </div>
+                <div className="text-sm text-text-muted mt-1">
+                  Get back into your last room
+                </div>
+              </button>
+            )}
+
             <button
               onClick={() => setMode("create")}
               disabled={!isConnected}
@@ -92,7 +135,7 @@ export default function Home() {
                 Create a Room
               </div>
               <div className="text-sm text-text-muted mt-1">
-                Start a new prediction room and share the code
+                Start a new prediction room and share the link
               </div>
             </button>
 
@@ -117,13 +160,21 @@ export default function Home() {
               <h2 className="text-lg font-semibold mb-4">Create a Room</h2>
               <input
                 type="text"
+                placeholder="Room name (optional, e.g. Friday Standup)"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                maxLength={40}
+                autoFocus
+                className="w-full p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
+              />
+              <input
+                type="text"
                 placeholder="Your display name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 maxLength={20}
-                autoFocus
-                className="w-full p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
+                className="w-full mt-3 p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
               />
               <button
                 onClick={handleCreate}

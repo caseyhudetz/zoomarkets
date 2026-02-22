@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { TypedSocket } from "./useSocket";
-import type { RoomView, MarketView, Player } from "@/types/shared";
+import type { RoomView, MarketView, Player, Comment } from "@/types/shared";
 import type { BetFeedEntry } from "@/components/room/BetFeedToast";
 
 let feedId = 0;
@@ -256,6 +256,20 @@ export function useRoom(socket: TypedSocket | null) {
       setBetFeed((prev) => [...prev.slice(-2), entry]);
     }
 
+    function onCommentAdded({ marketId, comment }: { marketId: string; comment: Comment }) {
+      setRoom((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          markets: prev.markets.map((m) =>
+            m.id === marketId
+              ? { ...m, comments: [...(m.comments || []), comment] }
+              : m
+          ),
+        };
+      });
+    }
+
     socket.on("room:joined", onJoined);
     socket.on("room:rejoined", onRejoined);
     socket.on("room:rejoinToken", onRejoinToken);
@@ -273,6 +287,7 @@ export function useRoom(socket: TypedSocket | null) {
     socket.on("player:balanceUpdated", onBalanceUpdated);
     socket.on("leaderboard:updated", onLeaderboard);
     socket.on("bet:placed", onBetPlaced);
+    socket.on("market:commentAdded", onCommentAdded);
 
     return () => {
       socket.off("room:joined", onJoined);
@@ -292,6 +307,7 @@ export function useRoom(socket: TypedSocket | null) {
       socket.off("player:balanceUpdated", onBalanceUpdated);
       socket.off("leaderboard:updated", onLeaderboard);
       socket.off("bet:placed", onBetPlaced);
+      socket.off("market:commentAdded", onCommentAdded);
     };
   }, [socket]);
 
@@ -324,14 +340,25 @@ export function useRoom(socket: TypedSocket | null) {
   );
 
   const leaveRoom = useCallback(() => {
+    const currentRoom = room;
     socket?.emit("room:leave");
     rejoinTokenRef.current = null;
     try {
       sessionStorage.removeItem("zoo_rejoinToken");
       sessionStorage.removeItem("zoo_rejoinCode");
+      if (currentRoom) {
+        sessionStorage.setItem(
+          "zoo_lastRoom",
+          JSON.stringify({
+            code: currentRoom.code,
+            name: currentRoom.name || null,
+            leftAt: Date.now(),
+          })
+        );
+      }
     } catch {}
     setRoom(null);
-  }, [socket]);
+  }, [socket, room]);
 
   const createMarket = useCallback(
     (question: string) => {
@@ -382,9 +409,9 @@ export function useRoom(socket: TypedSocket | null) {
     [socket]
   );
 
-  const importPlayers = useCallback(
-    (names: string[]) => {
-      socket?.emit("room:importPlayers", { names });
+  const commentOnMarket = useCallback(
+    (marketId: string, text: string) => {
+      socket?.emit("market:comment", { marketId, text });
     },
     [socket]
   );
@@ -413,6 +440,6 @@ export function useRoom(socket: TypedSocket | null) {
     placeBet,
     resolveMarket,
     reactToMarket,
-    importPlayers,
+    commentOnMarket,
   };
 }

@@ -9,7 +9,6 @@ import { RoomHeader } from "@/components/room/RoomHeader";
 import { MarketCard } from "@/components/room/MarketCard";
 import { Leaderboard } from "@/components/room/Leaderboard";
 import { CreateMarketModal } from "@/components/room/CreateMarketModal";
-import { ZoomImportModal } from "@/components/room/ZoomImportModal";
 import { Confetti } from "@/components/effects/Confetti";
 import { BetFeedToast } from "@/components/room/BetFeedToast";
 import { MobileBottomBar } from "@/components/room/MobileBottomBar";
@@ -40,20 +39,18 @@ export default function RoomPage({
     placeBet,
     resolveMarket,
     reactToMarket,
-    importPlayers,
+    commentOnMarket,
   } = useRoom(socket);
 
   const { muted, toggleMute, playBetSound, playResolveSound, playStreakSound } =
     useSounds();
 
   const [showCreateMarket, setShowCreateMarket] = useState(false);
-  const [showZoomImport, setShowZoomImport] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [joinName, setJoinName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
 
-  // Track whether we've attempted auto-join
   const autoJoinAttempted = useRef(false);
 
   // Auto-join: try rejoin token first, then fall back to stored name
@@ -63,14 +60,12 @@ export default function RoomPage({
 
     autoJoinAttempted.current = true;
 
-    // Try rejoin first (returning user with valid token)
     const rejoinCode = sessionStorage.getItem("zoo_rejoinCode");
     if (rejoinCode === upperCode) {
       const attempted = rejoinRoom(upperCode);
       if (attempted) return;
     }
 
-    // Fall back to stored name from landing page
     const storedName = sessionStorage.getItem("zoo_playerName");
     const storedCode = sessionStorage.getItem("zoo_roomCode");
 
@@ -129,10 +124,8 @@ export default function RoomPage({
     joinRoom(upperCode, joinName.trim());
   }
 
-  // Determine if we're in the room
   const isInRoom = room && room.code === upperCode;
 
-  // Not connected yet or not in the room — show join form
   if (!isInRoom) {
     return (
       <div className="min-h-screen grid-bg flex items-center justify-center p-4">
@@ -199,6 +192,7 @@ export default function RoomPage({
 
       <RoomHeader
         code={room.code}
+        roomName={room.name}
         playerCount={room.players.length}
         myBalance={myBalance}
         isHost={isHost}
@@ -210,7 +204,6 @@ export default function RoomPage({
       <div className="flex-1 flex flex-col lg:flex-row pb-16 lg:pb-0">
         {/* Main content */}
         <main className="flex-1 p-3 sm:p-4 overflow-y-auto">
-          {/* Empty state */}
           {room.markets.length === 0 && (
             <div className="text-center py-16 animate-fade-in">
               <h2 className="text-xl font-semibold text-text-secondary mb-2">
@@ -224,7 +217,6 @@ export default function RoomPage({
             </div>
           )}
 
-          {/* Open Markets */}
           {openMarkets.length > 0 && (
             <div className="space-y-4 mb-6">
               <h2 className="text-xs text-text-muted uppercase tracking-wider font-semibold px-1">
@@ -239,12 +231,12 @@ export default function RoomPage({
                   onBet={placeBet}
                   onResolve={resolveMarket}
                   onReact={reactToMarket}
+                  onComment={commentOnMarket}
                 />
               ))}
             </div>
           )}
 
-          {/* Resolved Markets */}
           {resolvedMarkets.length > 0 && (
             <div className="space-y-4">
               <h2 className="text-xs text-text-muted uppercase tracking-wider font-semibold px-1">
@@ -259,6 +251,7 @@ export default function RoomPage({
                   onBet={placeBet}
                   onResolve={resolveMarket}
                   onReact={reactToMarket}
+                  onComment={commentOnMarket}
                 />
               ))}
             </div>
@@ -269,18 +262,11 @@ export default function RoomPage({
         <aside className="hidden lg:block w-80 p-4 border-l border-zoo-border space-y-4">
           <Leaderboard players={room.players} myId={myId} />
 
-          {/* Players list */}
           <div className="bg-zoo-surface border border-zoo-border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-zoo-border flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-zoo-border">
               <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
                 Players ({room.players.length})
               </h3>
-              <button
-                onClick={() => setShowZoomImport(true)}
-                className="text-xs px-2 py-1 rounded-lg bg-neon-purple/10 border border-neon-purple/30 text-neon-purple hover:bg-neon-purple/20 transition-colors"
-              >
-                + Import Names
-              </button>
             </div>
             <div className="p-3 flex flex-wrap gap-2">
               {room.players.map((p) => (
@@ -291,9 +277,7 @@ export default function RoomPage({
                       ? "bg-neon-blue/10 border-neon-blue/30 text-neon-blue"
                       : p.disconnected
                         ? "bg-zoo-bg border-zoo-border text-text-muted opacity-50"
-                        : p.id.startsWith("ghost_")
-                          ? "bg-neon-purple/10 border-neon-purple/30 text-neon-purple"
-                          : "bg-zoo-bg border-zoo-border text-text-secondary"
+                        : "bg-zoo-bg border-zoo-border text-text-secondary"
                   }`}
                 >
                   {p.name}
@@ -314,7 +298,7 @@ export default function RoomPage({
         onTap={() => setShowBottomSheet(true)}
       />
 
-      {/* Mobile Bottom Sheet (leaderboard + players) */}
+      {/* Mobile Bottom Sheet */}
       <BottomSheet
         isOpen={showBottomSheet}
         onClose={() => setShowBottomSheet(false)}
@@ -322,19 +306,10 @@ export default function RoomPage({
         <Leaderboard players={room.players} myId={myId} />
 
         <div className="bg-zoo-surface border border-zoo-border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-zoo-border flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-zoo-border">
             <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
               Players ({room.players.length})
             </h3>
-            <button
-              onClick={() => {
-                setShowBottomSheet(false);
-                setShowZoomImport(true);
-              }}
-              className="text-xs px-2 py-1 rounded-lg bg-neon-purple/10 border border-neon-purple/30 text-neon-purple hover:bg-neon-purple/20 transition-colors"
-            >
-              + Import
-            </button>
           </div>
           <div className="p-3 flex flex-wrap gap-2">
             {room.players.map((p) => (
@@ -345,9 +320,7 @@ export default function RoomPage({
                     ? "bg-neon-blue/10 border-neon-blue/30 text-neon-blue"
                     : p.disconnected
                       ? "bg-zoo-bg border-zoo-border text-text-muted opacity-50"
-                      : p.id.startsWith("ghost_")
-                        ? "bg-neon-purple/10 border-neon-purple/30 text-neon-purple"
-                        : "bg-zoo-bg border-zoo-border text-text-secondary"
+                      : "bg-zoo-bg border-zoo-border text-text-secondary"
                 }`}
               >
                 {p.name}
@@ -359,7 +332,6 @@ export default function RoomPage({
         </div>
       </BottomSheet>
 
-      {/* Bet Feed Toasts */}
       <BetFeedToast entries={betFeed} />
 
       {/* FAB */}
@@ -372,27 +344,16 @@ export default function RoomPage({
         </button>
       </div>
 
-      {/* Error toast */}
       {error && (
         <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 p-3 rounded-lg bg-neon-red/10 border border-neon-red/30 text-neon-red text-sm animate-slide-up z-50">
           {error}
         </div>
       )}
 
-      {/* Create Market Modal */}
       {showCreateMarket && (
         <CreateMarketModal
           onClose={() => setShowCreateMarket(false)}
           onCreate={createMarket}
-        />
-      )}
-
-      {/* Zoom Import Modal */}
-      {showZoomImport && (
-        <ZoomImportModal
-          existingNames={room.players.map((p) => p.name)}
-          onImport={importPlayers}
-          onClose={() => setShowZoomImport(false)}
         />
       )}
     </div>

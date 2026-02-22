@@ -1,7 +1,7 @@
-import type { Player, RoomView, MarketView } from "./shared";
+import type { Player, RoomView, MarketView, Comment } from "./shared";
 
 export interface ClientToServerEvents {
-  "room:create": (data: { playerName: string }) => void;
+  "room:create": (data: { playerName: string; roomName?: string }) => void;
   "room:join": (data: { code: string; playerName: string }) => void;
   "room:rejoin": (data: { code: string; rejoinToken: string }) => void;
   "room:leave": () => void;
@@ -16,6 +16,7 @@ export interface ClientToServerEvents {
     resolution: "yes" | "no";
   }) => void;
   "market:react": (data: { marketId: string; emoji: string }) => void;
+  "market:comment": (data: { marketId: string; text: string }) => void;
   "room:importPlayers": (data: { names: string[] }) => void;
 }
 
@@ -41,6 +42,10 @@ export interface ServerToClientEvents {
   "market:reactionsUpdated": (data: {
     marketId: string;
     reactions: Record<string, number>;
+  }) => void;
+  "market:commentAdded": (data: {
+    marketId: string;
+    comment: Comment;
   }) => void;
   "player:balanceUpdated": (data: {
     playerId: string;

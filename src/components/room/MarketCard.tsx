@@ -14,6 +14,7 @@ interface MarketCardProps {
   onBet: (marketId: string, side: "yes" | "no", amount: number) => void;
   onResolve: (marketId: string, resolution: "yes" | "no") => void;
   onReact: (marketId: string, emoji: string) => void;
+  onComment: (marketId: string, text: string) => void;
 }
 
 export function MarketCard({
@@ -23,9 +24,12 @@ export function MarketCard({
   onBet,
   onResolve,
   onReact,
+  onComment,
 }: MarketCardProps) {
   const [showBet, setShowBet] = useState(false);
   const [showResolve, setShowResolve] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
 
   const yesPercent = Math.round(market.yesPrice * 100);
   const noPercent = 100 - yesPercent;
@@ -134,6 +138,65 @@ export function MarketCard({
           myReactions={market.myReactions ?? []}
           onReact={(emoji) => onReact(market.id, emoji)}
         />
+
+        {/* Comments */}
+        <div className="mt-2">
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+          >
+            {(market.comments?.length || 0) > 0
+              ? `${market.comments.length} comment${market.comments.length !== 1 ? "s" : ""}`
+              : "Add comment"}
+            {showComments ? " \u25BE" : " \u25B8"}
+          </button>
+          {showComments && (
+            <div className="mt-2 space-y-2 animate-slide-up">
+              {(market.comments?.length || 0) > 0 && (
+                <div className="max-h-32 overflow-y-auto space-y-1.5">
+                  {market.comments.map((c) => (
+                    <div key={c.id} className="text-xs">
+                      <span className="font-semibold text-neon-blue">
+                        {c.playerName}
+                      </span>
+                      <span className="text-text-secondary ml-1.5">
+                        {c.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Say something..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && commentText.trim()) {
+                      onComment(market.id, commentText.trim());
+                      setCommentText("");
+                    }
+                  }}
+                  maxLength={280}
+                  className="flex-1 px-2 py-1.5 rounded-lg bg-zoo-bg border border-zoo-border text-xs text-text-primary placeholder:text-text-muted focus:border-neon-blue/50 focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    if (commentText.trim()) {
+                      onComment(market.id, commentText.trim());
+                      setCommentText("");
+                    }
+                  }}
+                  disabled={!commentText.trim()}
+                  className="px-2 py-1.5 rounded-lg bg-neon-blue/10 border border-neon-blue/30 text-neon-blue text-xs disabled:opacity-30 transition-colors"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Actions */}
