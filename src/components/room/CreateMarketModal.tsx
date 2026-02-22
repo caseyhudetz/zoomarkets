@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MARKET_TEMPLATES } from "@/lib/templates";
+import { TEMPLATE_CATEGORIES } from "@/lib/templates";
 
 interface CreateMarketModalProps {
   onClose: () => void;
@@ -21,22 +21,27 @@ export function CreateMarketModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg bg-zoo-surface border border-zoo-border rounded-xl animate-slide-up"
+        className="w-full sm:max-w-lg bg-zoo-surface border border-zoo-border rounded-t-2xl sm:rounded-xl max-h-[85vh] flex flex-col animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-zoo-border flex items-center justify-between">
+        {/* Header */}
+        <div className="p-4 border-b border-zoo-border flex items-center justify-between shrink-0">
           <h2 className="text-lg font-semibold">Create a Market</h2>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary transition-colors text-xl leading-none"
+            className="text-text-muted hover:text-text-primary transition-colors text-xl leading-none p-1"
           >
-            x
+            &times;
           </button>
         </div>
 
-        <div className="p-4">
+        {/* Scrollable content */}
+        <div className="p-4 overflow-y-auto flex-1">
           <input
             type="text"
             placeholder='e.g. "Will Dave be late?"'
@@ -51,34 +56,39 @@ export function CreateMarketModal({
           <button
             onClick={handleSubmit}
             disabled={!question.trim()}
-            className="w-full mt-3 p-3 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue font-semibold hover:bg-neon-blue/30 transition-colors disabled:opacity-40"
+            className="w-full mt-3 p-3 rounded-lg bg-neon-blue/20 border border-neon-blue/40 text-neon-blue font-semibold hover:bg-neon-blue/30 transition-colors disabled:opacity-40 min-h-[48px]"
           >
             Create Market
           </button>
 
-          <div className="mt-5">
-            <h4 className="text-xs text-text-muted uppercase tracking-wider mb-3">
-              Quick Templates
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {MARKET_TEMPLATES.map((t) => (
-                <button
-                  key={t.label}
-                  onClick={() => {
-                    onCreate(t.question);
-                    onClose();
-                  }}
-                  className="p-2.5 rounded-lg bg-zoo-bg border border-zoo-border hover:border-neon-purple/40 text-left transition-colors group"
-                >
-                  <div className="text-xs font-semibold text-neon-purple group-hover:text-neon-purple">
-                    {t.label}
-                  </div>
-                  <div className="text-xs text-text-muted mt-0.5 leading-snug">
-                    {t.question}
-                  </div>
-                </button>
-              ))}
-            </div>
+          {/* Categorized Templates */}
+          <div className="mt-5 space-y-4">
+            {TEMPLATE_CATEGORIES.map((cat) => (
+              <div key={cat.name}>
+                <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">
+                  {cat.emoji} {cat.name}
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {cat.templates.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => {
+                        onCreate(t.question);
+                        onClose();
+                      }}
+                      className="p-2.5 rounded-lg bg-zoo-bg border border-zoo-border hover:border-neon-purple/40 text-left transition-colors group min-h-[48px]"
+                    >
+                      <div className="text-xs font-semibold text-neon-purple group-hover:text-neon-purple">
+                        {t.label}
+                      </div>
+                      <div className="text-xs text-text-muted mt-0.5 leading-snug">
+                        {t.question}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

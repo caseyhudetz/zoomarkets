@@ -1,8 +1,12 @@
+export type ReactionEmoji = "🔥" | "😂" | "💀" | "🤔";
+
 export interface Player {
   id: string;
   name: string;
   balance: number;
   isHost: boolean;
+  streak: number;
+  disconnected?: boolean;
 }
 
 export interface Position {
@@ -35,8 +39,17 @@ export interface Room {
   createdAt: number;
 }
 
+export interface Comment {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface RoomView {
   code: string;
+  name?: string;
   hostId: string;
   players: Player[];
   markets: MarketView[];
@@ -52,4 +65,7 @@ export interface MarketView {
   totalVolume: number;
   myPosition: Position | null;
   priceHistory: { timestamp: number; yesPrice: number }[];
+  reactions: Record<string, number>;
+  myReactions: string[];
+  comments: Comment[];
 }

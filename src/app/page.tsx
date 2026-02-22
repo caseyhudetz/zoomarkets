@@ -3,17 +3,39 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
+import { CURRENCY_SYMBOL } from "@/lib/constants";
 
 export default function Home() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
 
   const [name, setName] = useState("");
+  const [roomName, setRoomName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [joinName, setJoinName] = useState("");
   const [mode, setMode] = useState<"pick" | "create" | "join">("pick");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastRoom, setLastRoom] = useState<{
+    code: string;
+    name: string | null;
+    leftAt: number;
+  } | null>(null);
+
+  // Check for last room on mount
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("zoo_lastRoom");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Date.now() - parsed.leftAt < 30 * 60 * 1000) {
+          setLastRoom(parsed);
+        } else {
+          sessionStorage.removeItem("zoo_lastRoom");
+        }
+      }
+    } catch {}
+  }, []);
 
   // Listen for errors
   useEffect(() => {
@@ -32,21 +54,20 @@ export default function Home() {
   function handleCreate() {
     if (!name.trim() || !socket) return;
     setLoading(true);
-    // Just emit create — don't listen for room:joined here.
-    // We'll navigate to the room page, which will handle re-joining.
     socket.once("room:created", ({ code }) => {
-      // Store our name so the room page can auto-join
       sessionStorage.setItem("zoo_playerName", name.trim());
       sessionStorage.setItem("zoo_roomCode", code);
       router.push(`/room/${code}`);
     });
-    socket.emit("room:create", { playerName: name.trim() });
+    socket.emit("room:create", {
+      playerName: name.trim(),
+      roomName: roomName.trim() || undefined,
+    });
   }
 
   function handleJoin() {
     if (!joinCode.trim() || !joinName.trim() || !socket) return;
     setLoading(true);
-    // Store name and navigate — room page handles the actual join
     sessionStorage.setItem("zoo_playerName", joinName.trim());
     sessionStorage.setItem("zoo_roomCode", joinCode.trim().toUpperCase());
     router.push(`/room/${joinCode.trim().toUpperCase()}`);
@@ -62,7 +83,7 @@ export default function Home() {
             <span className="text-neon-blue">Markets</span>
           </h1>
           <p className="text-text-secondary text-lg">
-            Degenerate meeting betting
+            Bet your {CURRENCY_SYMBOL} reputation
           </p>
         </div>
 
@@ -86,6 +107,25 @@ export default function Home() {
 
         {mode === "pick" && (
           <div className="space-y-4 animate-fade-in">
+            {/* Rejoin last room */}
+            {lastRoom && (
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem("zoo_lastRoom");
+                  router.push(`/room/${lastRoom.code}`);
+                }}
+                disabled={!isConnected}
+                className="w-full p-4 rounded-xl bg-zoo-surface border border-neon-gold/30 hover:border-neon-gold/50 transition-all text-left group disabled:opacity-50"
+              >
+                <div className="text-lg font-semibold text-neon-gold">
+                  Rejoin {lastRoom.name || `Room ${lastRoom.code}`}
+                </div>
+                <div className="text-sm text-text-muted mt-1">
+                  Get back into your last room
+                </div>
+              </button>
+            )}
+
             <button
               onClick={() => setMode("create")}
               disabled={!isConnected}
@@ -95,7 +135,7 @@ export default function Home() {
                 Create a Room
               </div>
               <div className="text-sm text-text-muted mt-1">
-                Start a new betting room and share the code
+                Start a new prediction room and share the link
               </div>
             </button>
 
@@ -120,13 +160,21 @@ export default function Home() {
               <h2 className="text-lg font-semibold mb-4">Create a Room</h2>
               <input
                 type="text"
+                placeholder="Room name (optional, e.g. Friday Standup)"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                maxLength={40}
+                autoFocus
+                className="w-full p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
+              />
+              <input
+                type="text"
                 placeholder="Your display name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 maxLength={20}
-                autoFocus
-                className="w-full p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
+                className="w-full mt-3 p-3 rounded-lg bg-zoo-bg border border-zoo-border focus:border-neon-green/50 focus:outline-none text-text-primary placeholder:text-text-muted transition-colors"
               />
               <button
                 onClick={handleCreate}
@@ -189,7 +237,7 @@ export default function Home() {
         )}
 
         <div className="mt-12 text-center text-text-muted text-xs">
-          No real money. Just vibes and bragging rights.
+          No real money. Just {CURRENCY_SYMBOL} Clout and bragging rights.
         </div>
       </div>
     </div>
